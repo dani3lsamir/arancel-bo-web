@@ -159,6 +159,11 @@ h1 { margin: 0; font-size: clamp(1.65rem, 4vw, 2.4rem); line-height: 1.14; lette
 .detail dl { display: grid; grid-template-columns: minmax(0, 11rem) minmax(0, 1fr); gap: 6px 12px; margin: 0 0 10px; font-size: 14px; }
 .detail dt { color: var(--muted); }
 .detail dd { margin: 0; overflow-wrap: anywhere; }
+.detail-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.share-address {
+  flex-basis: 100%; min-width: 0; padding: 6px 10px; border: 1px solid var(--line);
+  border-radius: 6px; background: var(--surface); color: var(--text);
+}
 mark { background: var(--line); color: var(--text); border-radius: 2px; }
 .empty { padding: 14px 0 2px; color: var(--muted); }
 .empty strong { color: var(--text); }
@@ -417,7 +422,11 @@ footer p { margin: 0; }
       ${detail("Base legal", value("doc_legal"))}
       ${detail("ICE / IEHD", value("ice_iehd"))}
       ${detail("Preferencias (%)", preferences)}
-    </dl>${code ? `<button type="button" class="plain-button" data-copy="${esc(code)}">Copiar código</button>` : ""}</div></details></li>`;
+    </dl>${code ? `<div class="detail-actions">
+      <button type="button" class="plain-button" data-copy="${esc(code)}">Copiar código</button>
+      <button type="button" class="plain-button" data-share="${esc(code)}">Copiar enlace</button>
+      <input class="share-address" type="text" readonly hidden aria-label="Enlace de la subpartida">
+    </div>` : ""}</div></details></li>`;
   }
 
   function render() {
@@ -514,14 +523,28 @@ footer p { margin: 0; }
       resetFilters();
       return;
     }
-    const button = event.target.closest("[data-copy]");
+    const button = event.target.closest("[data-copy], [data-share]");
     if (!button) return;
-    const code = button.dataset.copy;
+    const shareCode = button.dataset.share;
+    let text = button.dataset.copy;
+    if (shareCode) {
+      const address = new URL("https://dani3lsamir.github.io/arancel-bo-web/");
+      address.hash = new URLSearchParams({ q: shareCode }).toString();
+      text = address.href;
+    }
     try {
-      await navigator.clipboard.writeText(code);
-      button.textContent = "Copiado · " + code;
+      await navigator.clipboard.writeText(text);
+      button.textContent = shareCode ? "Enlace copiado" : "Copiado · " + text;
     } catch {
-      button.textContent = code;
+      if (!shareCode) {
+        button.textContent = text;
+        return;
+      }
+      const input = button.parentElement.querySelector(".share-address");
+      input.value = text;
+      input.hidden = false;
+      input.focus();
+      input.select();
     }
   });
   document.addEventListener("keydown", event => {
@@ -534,6 +557,7 @@ footer p { margin: 0; }
   state.query = new URLSearchParams(location.hash.slice(1)).get("q") || "";
   search.value = state.query;
   render();
+  if (/^\d{10}$/.test(state.query)) results.querySelector("details")?.setAttribute("open", "");
 })();
 </script>
 </body>
